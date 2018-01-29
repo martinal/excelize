@@ -2287,50 +2287,32 @@ func setCellXfs(style *xlsxStyleSheet, fontID, numFmtID, fillID, borderID int, a
 //    xlsx.SetCellStyle("Sheet1", "H9", "H9", style)
 //
 func (f *File) SetCellStyle(sheet, hcell, vcell string, styleID int) {
-	hcell = strings.ToUpper(hcell)
-	vcell = strings.ToUpper(vcell)
-
 	// Coordinate conversion, convert C1:B3 to 2,0,1,2.
-	hcol := string(strings.Map(letterOnlyMapF, hcell))
-	hrow, err := strconv.Atoi(strings.Map(intOnlyMapF, hcell))
+	hyAxis, hxAxis, err := cellToXY(hcell)
 	if err != nil {
-		return
+		panic("Invalid cell")
 	}
-	hyAxis := hrow - 1
-	hxAxis := TitleToNumber(hcol)
-
-	vcol := string(strings.Map(letterOnlyMapF, vcell))
-	vrow, err := strconv.Atoi(strings.Map(intOnlyMapF, vcell))
+	vyAxis, vxAxis, err := cellToXY(vcell)
 	if err != nil {
-		return
-	}
-	vyAxis := vrow - 1
-	vxAxis := TitleToNumber(vcol)
-
-	if vxAxis < hxAxis {
-		hcell, vcell = vcell, hcell
-		vxAxis, hxAxis = hxAxis, vxAxis
-	}
-
-	if vyAxis < hyAxis {
-		hcell, vcell = vcell, hcell
-		vyAxis, hyAxis = hyAxis, vyAxis
+		panic("Invalid cell")
 	}
 
 	// Correct the coordinate area, such correct C1:B3 to B1:C3.
-	hcell = ToAlphaString(hxAxis) + strconv.Itoa(hyAxis+1)
-	vcell = ToAlphaString(vxAxis) + strconv.Itoa(vyAxis+1)
+	if vxAxis < hxAxis {
+		vxAxis, hxAxis = hxAxis, vxAxis
+	}
+	if vyAxis < hyAxis {
+		vyAxis, hyAxis = hyAxis, vyAxis
+	}
 
 	xlsx := f.workSheetReader(sheet)
 
 	completeRow(xlsx, vyAxis+1, vxAxis+1)
 	completeCol(xlsx, vyAxis+1, vxAxis+1)
 
-	for r, row := range xlsx.SheetData.Row {
-		for k, c := range row.C {
-			if checkCellInArea(c.R, hcell+":"+vcell) {
-				xlsx.SheetData.Row[r].C[k].S = styleID
-			}
+	for r := hyAxis; r <= vyAxis; r++ {
+		for k := hxAxis; k <= vxAxis; k++ {
+			xlsx.SheetData.Row[r].C[k].S = styleID
 		}
 	}
 }

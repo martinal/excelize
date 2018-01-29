@@ -153,7 +153,7 @@ func (f *File) GetCellStyle(sheet, axis string) int {
 	completeRow(xlsx, rows, cell)
 	completeCol(xlsx, rows, cell)
 
-	return f.prepareCellStyle(xlsx, cell, xlsx.SheetData.Row[xAxis].C[yAxis].S)
+	return prepareCellStyle(xlsx, cell, xlsx.SheetData.Row[xAxis].C[yAxis].S)
 }
 
 // GetCellFormula provides function to get formula from cell by given worksheet
@@ -348,13 +348,11 @@ func (f *File) MergeCell(sheet, hcell, vcell string) {
 func (f *File) SetCellInt(sheet, axis string, value int) {
 	xlsx := f.workSheetReader(sheet)
 	axis = f.mergeCellsParser(xlsx, axis)
-	col := string(strings.Map(letterOnlyMapF, axis))
-	row, err := strconv.Atoi(strings.Map(intOnlyMapF, axis))
+
+	xAxis, yAxis, err := cellToXY(axis)
 	if err != nil {
 		return
 	}
-	xAxis := row - 1
-	yAxis := TitleToNumber(col)
 
 	rows := xAxis + 1
 	cell := yAxis + 1
@@ -362,14 +360,14 @@ func (f *File) SetCellInt(sheet, axis string, value int) {
 	completeRow(xlsx, rows, cell)
 	completeCol(xlsx, rows, cell)
 
-	xlsx.SheetData.Row[xAxis].C[yAxis].S = f.prepareCellStyle(xlsx, cell, xlsx.SheetData.Row[xAxis].C[yAxis].S)
+	xlsx.SheetData.Row[xAxis].C[yAxis].S = prepareCellStyle(xlsx, cell, xlsx.SheetData.Row[xAxis].C[yAxis].S)
 	xlsx.SheetData.Row[xAxis].C[yAxis].T = ""
 	xlsx.SheetData.Row[xAxis].C[yAxis].V = strconv.Itoa(value)
 }
 
 // prepareCellStyle provides function to prepare style index of cell in
 // worksheet by given column index and style index.
-func (f *File) prepareCellStyle(xlsx *xlsxWorksheet, col, style int) int {
+func prepareCellStyle(xlsx *xlsxWorksheet, col, style int) int {
 	if xlsx.Cols != nil && style == 0 {
 		for _, v := range xlsx.Cols.Col {
 			if v.Min <= col && col <= v.Max {
@@ -388,13 +386,11 @@ func (f *File) SetCellStr(sheet, axis, value string) {
 	if len(value) > 32767 {
 		value = value[0:32767]
 	}
-	col := string(strings.Map(letterOnlyMapF, axis))
-	row, err := strconv.Atoi(strings.Map(intOnlyMapF, axis))
+
+	xAxis, yAxis, err := cellToXY(axis)
 	if err != nil {
 		return
 	}
-	xAxis := row - 1
-	yAxis := TitleToNumber(col)
 
 	rows := xAxis + 1
 	cell := yAxis + 1
@@ -411,7 +407,7 @@ func (f *File) SetCellStr(sheet, axis, value string) {
 			}
 		}
 	}
-	xlsx.SheetData.Row[xAxis].C[yAxis].S = f.prepareCellStyle(xlsx, cell, xlsx.SheetData.Row[xAxis].C[yAxis].S)
+	xlsx.SheetData.Row[xAxis].C[yAxis].S = prepareCellStyle(xlsx, cell, xlsx.SheetData.Row[xAxis].C[yAxis].S)
 	xlsx.SheetData.Row[xAxis].C[yAxis].T = "str"
 	xlsx.SheetData.Row[xAxis].C[yAxis].V = value
 }
@@ -421,13 +417,11 @@ func (f *File) SetCellStr(sheet, axis, value string) {
 func (f *File) SetCellDefault(sheet, axis, value string) {
 	xlsx := f.workSheetReader(sheet)
 	axis = f.mergeCellsParser(xlsx, axis)
-	col := string(strings.Map(letterOnlyMapF, axis))
-	row, err := strconv.Atoi(strings.Map(intOnlyMapF, axis))
+
+	xAxis, yAxis, err := cellToXY(axis)
 	if err != nil {
 		return
 	}
-	xAxis := row - 1
-	yAxis := TitleToNumber(col)
 
 	rows := xAxis + 1
 	cell := yAxis + 1
@@ -435,35 +429,30 @@ func (f *File) SetCellDefault(sheet, axis, value string) {
 	completeRow(xlsx, rows, cell)
 	completeCol(xlsx, rows, cell)
 
-	xlsx.SheetData.Row[xAxis].C[yAxis].S = f.prepareCellStyle(xlsx, cell, xlsx.SheetData.Row[xAxis].C[yAxis].S)
+	xlsx.SheetData.Row[xAxis].C[yAxis].S = prepareCellStyle(xlsx, cell, xlsx.SheetData.Row[xAxis].C[yAxis].S)
 	xlsx.SheetData.Row[xAxis].C[yAxis].T = ""
 	xlsx.SheetData.Row[xAxis].C[yAxis].V = value
+}
+
+// cellToXY provides funciton to convert cell coordinate to zero based x,y indices
+func cellToXY(cell string) (xAxis, yAxis int, err error) {
+	cell = strings.ToUpper(cell)
+
+	col := string(strings.Map(letterOnlyMapF, cell))
+	row, err := strconv.Atoi(strings.Map(intOnlyMapF, cell))
+
+	xAxis = row - 1
+	yAxis = TitleToNumber(col)
+
+	return
 }
 
 // checkCellInArea provides function to determine if a given coordinate is
 // within an area.
 func checkCellInArea(cell, area string) bool {
-	result := false
-	cell = strings.ToUpper(cell)
-	col := string(strings.Map(letterOnlyMapF, cell))
-	row, _ := strconv.Atoi(strings.Map(intOnlyMapF, cell))
-	xAxis := row - 1
-	yAxis := TitleToNumber(col)
-
 	ref := strings.Split(area, ":")
-	hCol := string(strings.Map(letterOnlyMapF, ref[0]))
-	hRow, _ := strconv.Atoi(strings.Map(intOnlyMapF, ref[0]))
-	hyAxis := hRow - 1
-	hxAxis := TitleToNumber(hCol)
-
-	vCol := string(strings.Map(letterOnlyMapF, ref[1]))
-	vRow, _ := strconv.Atoi(strings.Map(intOnlyMapF, ref[1]))
-	vyAxis := vRow - 1
-	vxAxis := TitleToNumber(vCol)
-
-	if hxAxis <= yAxis && yAxis <= vxAxis && hyAxis <= xAxis && xAxis <= vyAxis {
-		result = true
-	}
-
-	return result
+	xAxis, yAxis, _ := cellToXY(cell)
+	hxAxis, hyAxis, _ := cellToXY(ref[0])
+	vxAxis, vyAxis, _ := cellToXY(ref[1])
+	return hxAxis <= xAxis && xAxis <= vxAxis && hyAxis <= yAxis && yAxis <= vyAxis
 }
