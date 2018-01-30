@@ -277,6 +277,12 @@ func (f *File) RemoveCol(sheet, column string) {
 // Completion column element tags of XML in a sheet.
 func completeCol(xlsx *xlsxWorksheet, row, cell int) {
 	buffer := bytes.Buffer{}
+	// Assumption: all rows have the same number of columns,
+	// so we can just inspect one to see if we need to add columns
+	if len(xlsx.SheetData.Row) > 0 && len(xlsx.SheetData.Row[0].C) < cell {
+		return
+	}
+
 	for r := range xlsx.SheetData.Row {
 		if len(xlsx.SheetData.Row[r].C) < cell {
 			start := len(xlsx.SheetData.Row[r].C)
